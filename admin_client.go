@@ -23,6 +23,7 @@ type AdminClient interface {
 	EnableTable(t *hrpc.EnableTable) error
 	DisableTable(t *hrpc.DisableTable) error
 	ClusterStatus() (*pb.ClusterStatus, error)
+	MoveRegion(t *hrpc.MoveRegion) error
 }
 
 // NewAdminClient creates an admin HBase client.
@@ -122,6 +123,20 @@ func (c *client) DisableTable(t *hrpc.DisableTable) error {
 	}
 
 	return c.checkProcedureWithBackoff(t.Context(), r.GetProcId())
+}
+
+func (c *client) MoveRegion(t *hrpc.MoveRegion) error {
+	pbmsg, err := c.SendRPC(t)
+	if err != nil {
+		return err
+	}
+
+	_, ok := pbmsg.(*pb.MoveRegionResponse)
+	if !ok {
+		return fmt.Errorf("sendRPC returned not a MoveRegionResponse")
+	}
+
+	return nil
 }
 
 func (c *client) checkProcedureWithBackoff(ctx context.Context, procID uint64) error {

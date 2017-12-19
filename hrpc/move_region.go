@@ -15,18 +15,32 @@ import (
 // MoveRegion represents a MoveRegion HBase call
 type MoveRegion struct {
 	base
+	encodedRegionName []byte
+	destServerName    *pb.ServerName
 }
 
 // NewEnableTable creates a new EnableTable request that will enable the
 // given table in HBase. For use by the admin client.a
 
-func NewMoveRegion(ctx context.Context, encodedRegionName []byte) *MoveRegion {
-	return &MoveRegion{
-		base{
+func NewMoveRegion(ctx context.Context, encodedRegionName, destServerName []byte) (*MoveRegion, error) {
+	req := &MoveRegion{
+		base: base{
 			ctx:      ctx,
 			resultch: make(chan RPCResult, 1),
 		},
+		encodedRegionName: encodedRegionName,
+		// destServerName:    destServerName,
 	}
+	if destServerName == nil || len(destServerName) == 0 {
+		req.destServerName = nil
+	} else {
+		serverName, err := buildServerName(string(destServerName))
+		if err != nil {
+			return nil, err
+		}
+		req.destServerName = serverName
+	}
+	return req, nil
 }
 
 // Name returns the name of this RPC call.
@@ -36,9 +50,12 @@ func (mr *MoveRegion) Name() string {
 
 // ToProto converts the RPC into a protobuf message
 func (mr *MoveRegion) ToProto() proto.Message {
-	req := &pb.MoveRegionRequest{}
-
-	return req
+	regionSpecifier := buildRegionSpecifier(pb.RegionSpecifier_ENCODED_REGION_NAME, mr.encodedRegionName)
+	msg := &pb.MoveRegionRequest{
+		Region:         regionSpecifier,
+		DestServerName: mr.destServerName,
+	}
+	return msg
 }
 
 // NewResponse creates an empty protobuf message to read the response of this
